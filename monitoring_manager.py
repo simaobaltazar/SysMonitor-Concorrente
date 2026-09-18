@@ -12,7 +12,7 @@ class MonitoringManager:
         self.num_consumers = 3
         self.shared_queue = Queue(maxsize=self.queue_size)
         
-        self.is_running = True
+        self.stop_event = threading.Event()
         
         self.last_cpu_time = time.time()
         self.last_ram_time = time.time()
@@ -23,28 +23,28 @@ class MonitoringManager:
         self.consumers_pool = ThreadPoolExecutor(max_workers=self.num_consumers)
 
     def _cpu_producer(self):
-        while self.is_running:
+        while not self.stop_event.is_set():
             cpu_value = get_cpu_load()
             self.shared_queue.put(("cpu", cpu_value))
             self.last_cpu_time = time.time()
             time.sleep(0.1)
 
     def _ram_producer(self):
-        while self.is_running:
+        while not self.stop_event.is_set():
             ram_value = get_free_ram_percentage()
             self.shared_queue.put(("free_ram", ram_value))
             self.last_ram_time = time.time()
             time.sleep(0.1)
 
     def _disk_producer(self):
-        while self.is_running:
+        while not self.stop_event.is_set():
             disk_value = get_available_disk_percentage()
             self.shared_queue.put(("free_disk", disk_value))
             self.last_disk_time = time.time()
             time.sleep(0.1)
 
     def _consumer(self):
-        while self.is_running:
+        while not self.stop_event.is_set():
             try:
                 item_type, value = self.shared_queue.get(timeout=1)
                 
@@ -64,7 +64,7 @@ class MonitoringManager:
                 pass
 
     def _watchdog(self):
-        while self.is_running:
+        while not self.stop_event.is_set():
             time.sleep(1)
             now = time.time()
 
@@ -103,7 +103,7 @@ class MonitoringManager:
     def stop_monitoring(self):
         print("Shutting down system...")
         
-        self.is_running = False
+        self.stop_event.set()
         
         self.producers_pool.shutdown(wait=False)
         self.consumers_pool.shutdown(wait=False)
