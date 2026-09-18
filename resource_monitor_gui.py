@@ -1,46 +1,53 @@
-import tkinter as tk
-import queue
+import customtkinter as ctk
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from collections import deque
 
 class ResourceMonitorGUI:
     def __init__(self):
-        self.root = tk.Tk()
-        self.root.title("Monitor de Recursos - Alarmes")
-        self.root.geometry("500x300")
+        ctk.set_appearance_mode("System")
+        ctk.set_default_color_theme("blue")
 
-        # Área de texto onde vão aparecer os alarmes
-        self.text_area = tk.Text(self.root, state='disabled', bg='black', fg='red', font=('Consolas', 10))
-        self.text_area.pack(expand=True, fill='both', padx=10, pady=10)
+        self.root = ctk.CTk()
+        self.root.title("System Resource Monitor")
+        self.root.geometry("800x650")
 
-        # Fila thread-safe para receber mensagens das threads consumidoras
-        self.message_queue = queue.Queue()
+        self.main_frame = ctk.CTkFrame(self.root)
+        self.main_frame.pack(pady=20, padx=20, fill="both", expand=True)
 
-        # Inicia a verificação contínua de novas mensagens (a cada 100ms)
-        self.root.after(100, self._process_messages)
+        self.cpu_data = deque([0]*60, maxlen=60) 
+        
+        self.fig = Figure(figsize=(6, 3), dpi=100)
+        self.ax = self.fig.add_subplot(111)
+        self.ax.set_title("CPU Load (%)")
+        self.ax.set_ylim(0, 100)
+        
+        self.line, = self.ax.plot(self.cpu_data, color="#1f538d", linewidth=2)
+        
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.main_frame)
+        self.canvas.get_tk_widget().pack(pady=10, padx=10, fill="x")
+
+        self.title_label = ctk.CTkLabel(
+            self.main_frame, 
+            text="System Alerts Log", 
+            font=ctk.CTkFont(size=18, weight="bold")
+        )
+        self.title_label.pack(pady=(10, 5))
+
+        self.alert_box = ctk.CTkTextbox(self.main_frame, height=150, state="disabled")
+        self.alert_box.pack(pady=10, padx=10, fill="both", expand=True)
+
+    def update_cpu_graph(self, cpu_value):
+
+        self.cpu_data.append(cpu_value)
+        self.line.set_ydata(self.cpu_data)
+        self.canvas.draw_idle() 
 
     def add_alert(self, message):
-        """
-        Método chamado pelos Consumidores.
-        Adiciona uma mensagem de alerta à interface gráfica.
-        """
-        self.message_queue.put(message)
-
-    def _process_messages(self):
-        """
-        Método interno. Verifica a fila e atualiza o ecrã de forma segura.
-        """
-        while not self.message_queue.empty():
-            msg = self.message_queue.get()
-            self.text_area.config(state='normal')
-            self.text_area.insert(tk.END, f"[ALERTA] {msg}\n")
-            self.text_area.see(tk.END) # Faz scroll automático para baixo
-            self.text_area.config(state='disabled')
-
-        # Volta a agendar a verificação para daqui a 100ms
-        self.root.after(100, self._process_messages)
+        self.alert_box.configure(state="normal")
+        self.alert_box.insert("end", message + "\n")
+        self.alert_box.see("end")
+        self.alert_box.configure(state="disabled")
 
     def start(self):
-        """
-        Inicia o ciclo principal (mainloop) da interface gráfica.
-        Atenção: este método é bloqueante.
-        """
         self.root.mainloop()

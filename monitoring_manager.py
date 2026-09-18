@@ -1,3 +1,4 @@
+import logging
 import time
 import threading
 from queue import Empty, Queue
@@ -47,17 +48,22 @@ class MonitoringManager:
         while not self.stop_event.is_set():
             try:
                 item_type, value = self.shared_queue.get(timeout=1)
-                
                 self.last_consumer_time = time.time()
+
+                if item_type == "cpu":
+                    self.gui.root.after(0, self.gui.update_cpu_graph, value)
 
                 if item_type == "cpu" and value > 50:
                     self.gui.add_alert(f"HIGH CPU LOAD: {value:.2f}%")
+                    logging.warning(f"High CPU threshold exceeded: {value:.2f}%")
                 
                 elif item_type == "free_ram" and value < 10:
                     self.gui.add_alert(f"LOW FREE RAM: {value:.2f}%")
+                    logging.warning(f"Low RAM threshold exceeded: {value:.2f}%")
                 
                 elif item_type == "free_disk" and value < 20:
                     self.gui.add_alert(f"LOW DISK SPACE: {value:.2f}%")
+                    logging.warning(f"Low Disk threshold exceeded: {value:.2f}%")
                     
             except Empty:
 
@@ -89,7 +95,7 @@ class MonitoringManager:
                 self.last_consumer_time = now
 
     def start_monitoring(self):
-        
+        logging.info("Starting Monitoring System...")
         self.producers_pool.submit(self._cpu_producer)
         self.producers_pool.submit(self._ram_producer)
         self.producers_pool.submit(self._disk_producer)
@@ -101,13 +107,11 @@ class MonitoringManager:
         self.watchdog_thread.start()
 
     def stop_monitoring(self):
-        print("Shutting down system...")
-        
+        logging.info("Shutting down system...")
         self.stop_event.set()
         
         self.producers_pool.shutdown(wait=False)
         self.consumers_pool.shutdown(wait=False)
-        
         self.gui.root.after(0, self.gui.root.destroy)
         
-        print("System terminated.")
+        logging.info("System terminated successfully.")
