@@ -112,6 +112,8 @@ class MonitoringManager:
         
         self.producers_pool.shutdown(wait=False)
         self.consumers_pool.shutdown(wait=False)
-        self.gui.root.after(0, self.gui.root.destroy)
+
+        self.gui.root.quit()     
+        self.gui.root.destroy()
         
         logging.info("System terminated successfully.")
